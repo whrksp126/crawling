@@ -45,19 +45,20 @@ def count_pages(total_items):
 def get_brand_products_quantity(brand_list):
     brand_data = []
     # for brand in brand_list:
-    for i in range(5):
+    for i in range(50):
         brand_name = brand_list[i]['brand_name_ko']
         url = f'https://m.vinzip.kr/product/search.html?banner_action=&keyword={brand_name}'
         html = get_html_from_url(url)
         soup = BeautifulSoup(html, 'html.parser')
         total_items = int(soup.select_one('#titleArea h2 .count').text)
-        
-        
-        max_page = count_pages(total_items)
-        html = get_page_html(max_page, brand_name)
-        item_data = get_products_data(html)
-        brand_data.append({"brand_name": brand_name, "brand_data": item_data})
-        print(brand_name)
+        print(brand_name, total_items)
+        if total_items == 0:
+            brand_data.append({"brand_name": brand_name, "brand_data": []})    
+        else:
+            max_page = count_pages(total_items)
+            html = get_page_html(max_page, brand_name)
+            item_data = get_products_data(html)
+            brand_data.append({"brand_name": brand_name, "brand_data": item_data})
     return brand_data
 
 

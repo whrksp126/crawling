@@ -90,52 +90,63 @@ def get_products_data(html):
 
 
 
-
+brand_data=[];
 def crawler():
     while True:
         data = url_queue.get()
-        if data['url'] is None:
+        if data is None:
             break
         
         html = get_html_from_url(data['url'])
-        print(data['url'])
+        print(data['brand_name'],data['url'])
         soup = BeautifulSoup(html, 'html.parser')
         total_items = int(soup.select_one('#titleArea h2 .count').text)
-        
-        max_page = count_pages(total_items)
-        html = get_page_html(max_page, data['brand_name'])
-        item_data = get_products_data(html)
+        if total_items != 0:
+            max_page = count_pages(total_items)
+            html = get_page_html(max_page, data['brand_name'])
+            item_data = get_products_data(html)
+            brand_data.append({"brand_name": data['brand_name'], "brand_data": item_data})
+
         url_queue.task_done()
-        
+
+
+start_time = time.perf_counter()        
 url_queue = Queue()  # 크롤링할 URL을 저장할 큐를 생성합니다.
-num_threads = 4  # 동시에 실행할 스레드 개수를 지정합니다.
+num_threads = 8  # 동시에 실행할 스레드 개수를 지정합니다.
 
 brand_list = get_brand_data()
+
+
 # URL 큐에 URL을 추가합니다.
-# for brand in brand_list:
-    # brand_name = brand['brand_name_ko']
-for i in range(5):
-    brand_name = brand_list[i]['brand_name_ko']
+# for i in range(5):
+#     brand_name = brand_list[i]['brand_name_ko']
+
+for brand in brand_list:
+    brand_name = brand['brand_name_ko']
     url = f'https://m.vinzip.kr/product/search.html?banner_action=&keyword={brand_name}'
     url_queue.put({'url':url , 'brand_name': brand_name})
 
 
 # 스레드를 생성하고 실행합니다.
 threads = []
-print('1')
 for _ in range(num_threads):
     thread = threading.Thread(target=crawler)
     thread.start()
     threads.append(thread)
-print('2')
+
 # 모든 작업이 완료될 때까지 대기합니다.
 url_queue.join()
-print('3')
+
 # None을 큐에 추가하여 스레드를 종료합니다.
 for _ in range(num_threads):
     url_queue.put(None)
-print('4')
+    
 # 모든 스레드가 작업을 마칠 때까지 대기합니다.
 for thread in threads:
     thread.join()
-print('마지막')
+end_time = time.perf_counter()
+print("Execution time: {:.5f} seconds".format(end_time - start_time))
+
+# 데이터 확인용 json 파일 만들기
+with open('brand_data.json', 'w', encoding='utf-8') as f:
+  json.dump(brand_data, f, ensure_ascii=False, indent=4)
