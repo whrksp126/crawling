@@ -5,6 +5,8 @@ import math
 import time
 import asyncio
 import aiohttp
+import threading
+from queue import Queue
 
 # html crawing
 def get_html_from_url(url):
@@ -43,9 +45,9 @@ def count_pages(total_items):
 
 # 브랜드에 등록된 상품 수량 확인
 def get_brand_products_quantity(brand_list):
-    brand_data = []
+    
     # for brand in brand_list:
-    for i in range(5):
+    for i in range(50):
         brand_name = brand_list[i]['brand_name_ko']
         url = f'https://m.vinzip.kr/product/search.html?banner_action=&keyword={brand_name}'
         html = get_html_from_url(url)
@@ -56,11 +58,8 @@ def get_brand_products_quantity(brand_list):
         max_page = count_pages(total_items)
         html = get_page_html(max_page, brand_name)
         item_data = get_products_data(html)
-        brand_data.append({"brand_name": brand_name, "brand_data": item_data})
-        print(brand_name)
-    return brand_data
-
-
+        
+        
 # 브랜드 페이지별 HTML 빼오기
 def get_page_html(max_page, brand_name):
     for page in range(1, max_page+1):
@@ -70,31 +69,73 @@ def get_page_html(max_page, brand_name):
         
 # 페이지에서 상품 정보 빼오기
 def get_products_data(html):
-    item_data = []
-    soup = BeautifulSoup(html, 'html.parser')
-    item_htmls = soup.select('.df-prl-item.xans-record-')
+        item_data = []
+        soup = BeautifulSoup(html, 'html.parser')
+        item_htmls = soup.select('.df-prl-item.xans-record-')
 
-    for item_html in item_htmls:
-        price = item_html.select_one('.df-prl-data-price').text.strip()
-        name = item_html.select_one('.df-prl-name').text.strip()
-        size = item_html.select_one('.custom_option1 > span').text.strip()
-        img = item_html.select_one('.df-prl-thumb-link img')['src']
-        status = item_html.select_one('.df-prl-icon img')
-        if status:
-            status = status['alt']
+        for item_html in item_htmls:
+            price = item_html.select_one('.df-prl-data-price').text.strip()
+            name = item_html.select_one('.df-prl-name').text.strip()
+            size = item_html.select_one('.custom_option1 > span').text.strip()
+            img = item_html.select_one('.df-prl-thumb-link img')['src']
+            status = item_html.select_one('.df-prl-icon img')
+            if status:
+                status = status['alt']
 
-        item_data.append({"price": price, "name": name, "size": size, "img": img, "status": status})
-    return item_data
+            item_data.append({"price": price, "name": name, "size": size, "img": img, "status": status})
+        return item_data
+    # brand_data.append({"brand_name": brand_name, "brand_data": item_data})
+    # return brand_data
 
 
 
-start_time = time.perf_counter()
+
+
+def crawler():
+    while True:
+        data = url_queue.get()
+        if data['url'] is None:
+            break
+        
+        html = get_html_from_url(data['url'])
+        print(data['url'])
+        soup = BeautifulSoup(html, 'html.parser')
+        total_items = int(soup.select_one('#titleArea h2 .count').text)
+        
+        max_page = count_pages(total_items)
+        html = get_page_html(max_page, data['brand_name'])
+        item_data = get_products_data(html)
+        url_queue.task_done()
+        
+url_queue = Queue()  # 크롤링할 URL을 저장할 큐를 생성합니다.
+num_threads = 4  # 동시에 실행할 스레드 개수를 지정합니다.
 
 brand_list = get_brand_data()
-brand_data = get_brand_products_quantity(brand_list)
-end_time = time.perf_counter()
-print("Execution time: {:.5f} seconds".format(end_time - start_time))
+# URL 큐에 URL을 추가합니다.
+# for brand in brand_list:
+    # brand_name = brand['brand_name_ko']
+for i in range(5):
+    brand_name = brand_list[i]['brand_name_ko']
+    url = f'https://m.vinzip.kr/product/search.html?banner_action=&keyword={brand_name}'
+    url_queue.put({'url':url , 'brand_name': brand_name})
 
-# 데이터 확인용 json 파일 만들기
-with open('brand_data.json', 'w', encoding='utf-8') as f:
-  json.dump(brand_data, f, ensure_ascii=False, indent=4)
+
+# 스레드를 생성하고 실행합니다.
+threads = []
+print('1')
+for _ in range(num_threads):
+    thread = threading.Thread(target=crawler)
+    thread.start()
+    threads.append(thread)
+print('2')
+# 모든 작업이 완료될 때까지 대기합니다.
+url_queue.join()
+print('3')
+# None을 큐에 추가하여 스레드를 종료합니다.
+for _ in range(num_threads):
+    url_queue.put(None)
+print('4')
+# 모든 스레드가 작업을 마칠 때까지 대기합니다.
+for thread in threads:
+    thread.join()
+print('마지막')
