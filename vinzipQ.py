@@ -7,7 +7,6 @@ import asyncio
 import aiohttp
 import threading
 from queue import Queue
-
 # html crawing
 def get_html_from_url(url):
   headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
@@ -98,7 +97,7 @@ def crawler():
             break
         
         html = get_html_from_url(data['url'])
-        print(data['brand_name'],data['url'])
+        # print(data['brand_name'],data['url'])
         soup = BeautifulSoup(html, 'html.parser')
         total_items = int(soup.select_one('#titleArea h2 .count').text)
         if total_items != 0:
@@ -112,7 +111,7 @@ def crawler():
 
 start_time = time.perf_counter()        
 url_queue = Queue()  # 크롤링할 URL을 저장할 큐를 생성합니다.
-num_threads = 8  # 동시에 실행할 스레드 개수를 지정합니다.
+num_threads = 16  # 동시에 실행할 스레드 개수를 지정합니다.
 
 brand_list = get_brand_data()
 
